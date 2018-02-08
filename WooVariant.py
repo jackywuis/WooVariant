@@ -17,10 +17,8 @@ parser.add_argument('-a', '--only_first', action='store_false', required=False,
                     help='Set to output only when majority of a position is variant')
 
 args = parser.parse_args()
-input_file = args.reference
 template = {}
-node = None
-infh = open(input_file, 'r')
+infh = open(args.reference, 'r')
 for line in infh:
     if '>' in line:
         node = line.split('>')[1].split('\n')[0].split(' ')[0]
@@ -28,22 +26,20 @@ for line in infh:
     else:
         template[node] += line.split('\n')[0]
 infh.close()
-if args.output_file is not None:
+if args.output_file:
     output_file = args.output_file + '_woo.vcf'
 else:
     output_file = args.input_file.rsplit('.bam')[0] + '_woo.vcf'
-print 'Thank you for use WooVariant! You set reference %s, input %s, output %s, minimum read number %s, minmum read depth %s, minimum mutation abundance %s' % (
+print 'Thank you for use WooVariant! You set reference %s, input %s, output %s, minimum read number %s, '\ 
+  'minmum read depth %s, minimum mutation abundance %s' % (
     args.reference, args.input_file, output_file, args.is_min, args.depth, args.ma)
 outfh = open(output_file, 'w')
-outfh.write('##fileformat=VCFv4.1\n##source=WooNTvariant\n')
-outfh.write('##reference=file://')
-outfh.write(input_file)
-outfh.write('\n')
-outfh.write('##FILTER=<ID=IS,Number=1,Type=Integer,Description="Maximum number of reads supporting a mutation>"\n')
-outfh.write('##FILTER=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">\n')
-outfh.write('##FILTER=<ID=AF,Number=1,Type=Float,Description="Mutation abundance">\n')
-outfh.write('##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type">\n')
-outfh.write('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n')
+outfh.write('##fileformat=VCFv4.1\n##source=WooNTvariant\n##reference=file://' + args.reference +
+            '\n##FILTER=<ID=IS,Number=1,Type=Integer,Description="Maximum number of reads supporting a mutation>"\n' +
+            '##FILTER=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">\n' +
+            '##FILTER=<ID=AF,Number=1,Type=Float,Description="Mutation abundance">\n' + 
+            '##INFO=<ID=TYPE,Number=1,Type=String,Description="Variant type">\n' + 
+            '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n')
 samfile = pysam.AlignmentFile(args.input_file, 'rb')
 for line in samfile.text.split('\n'):
     if 'SQ' in line:
@@ -59,7 +55,7 @@ for line in samfile.text.split('\n'):
                         while count < read.indel:
                             count += 1
                             position += read.alignment.query_sequence[read.query_position + count]
-                    elif read.query_position is None:
+                    elif not read.query_position:
                         position = 'D'
                     else:
                         position = read.alignment.query_sequence[read.query_position]
@@ -72,14 +68,13 @@ for line in samfile.text.split('\n'):
                     if (float(counter[item]) * 100 / float(row.n)) > args.ma:
                         count += 1
                         sort_list += [(counter[item], item)]
-                if sort_list != []:
+                if not sort_list:
                     sort_list.sort(reverse=True)
                     output_nt = ''
-                    if (sort_list[0][1] != template[line.split('\t')[1].split(':')[1]][row.pos]) and (
-                        sort_list[0][0] >= args.depth):
+                    if (sort_list[0][1] != template[line.split('\t')[1].split(':')[1]][row.pos]) and (sort_list[0][0] >= args.depth):
                         output_nt = sort_list[0][1]
                         mx = sort_list[0][0]
-                    elif (count > 1) and (sort_list[1][0] >= args.depth) and (args.only_first):
+                    elif (count > 1) and (sort_list[1][0] >= args.depth) and args.only_first:
                         output_nt = sort_list[1][1]
                         mx = sort_list[1][0]
                     if output_nt != 'D' and output_nt != '':
